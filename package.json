@@ -4,6 +4,7 @@
   "description": "Twitch video Downloader",
   "main": "main.js",
   "dependencies": {
+    "dotenv": "^8.2.0",
     "mysql": "^2.18.1",
     "mysql-promise": "^5.0.0",
     "mysql2": "^2.1.0",
