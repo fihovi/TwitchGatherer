@@ -1,4 +1,4 @@
-'use strict';
+//use 'strict';
 const request = require('request');
 let mysql = require('mysql');
 let pool = mysql.createPool({
@@ -9,7 +9,7 @@ let pool = mysql.createPool({
     database: 'F_Videa'
 });
 let clientId = '***REMOVED***';
-let token = 'TOKEN';
+let token = 'pxd3esrv0leo99zj7zn2gf23r58mv4';
 global.sql = 'INSERT IGNORE INTO F_Videa.streams (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration) VALUES ?';
 /*pool.on('acquire', function(connection){
     console.log('Connection %d acquired', connection.threadId);
@@ -29,7 +29,7 @@ let nextOptions;
 let array = [];
 let after = null;
 let user_id = null;
-let timeToSleep = 5;
+let timeToSleep = 35;
 const promises = []
 global.aff0 = 0;
 function checkUser(user, uid, dname){ //Username, User_id, Display Name
@@ -104,7 +104,7 @@ function getUsernameById(id){
 function updateUserData(data){
 	console.log(data);
 	let {id:uid, login:user_name, display_name:streamer} = data;
-	process.exit(1);
+	//process.exit(1);
 }
 function processGetUserData(error, response, body){
 	if (!error && response.statusCode === 200) {
