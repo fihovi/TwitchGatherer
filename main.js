@@ -1,15 +1,16 @@
 //use 'strict';
 const request = require('request');
+require('dotenv').config();
 let mysql = require('mysql');
 let pool = mysql.createPool({
-    connectionLimit: 15,
-    host: '***REMOVED***',
-    user: '***REMOVED***',
-    password: '***REMOVED***',
-    database: 'F_Videa'
+	connectionLimit: 15,
+	host: process.env.mysql_host,
+	user: process.env.mysql_user,
+	password: process.env.mysql_pwd,
+	database: process.env.mysql_db
 });
-let clientId = '***REMOVED***';
-let token = 'pxd3esrv0leo99zj7zn2gf23r58mv4';
+let clientId = process.env.client_id
+let token = process.env.token
 global.sql = 'INSERT IGNORE INTO F_Videa.streams (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration) VALUES ?';
 /*pool.on('acquire', function(connection){
     console.log('Connection %d acquired', connection.threadId);
@@ -79,7 +80,7 @@ function getIdByUsername(username){
 		headers: {
 			'User-Agent': 'request',
 			'Client-ID': `${clientId}`,
-			'Authorization': `Bearer ${token}`,
+			'Authorization': `${token}`,
 		}}
 	console.log(`Getting data for username ${username}`);
 	//TODO
@@ -93,7 +94,7 @@ function getUsernameById(id){
 		headers: {
 			'User-Agent': 'request',
 			'Client-ID': `${clientId}`,
-			'Authorization': `Bearer ${token}`,
+			'Authorization': `${token}`,
 		}}
 	console.log(`Getting data for id ${id}`);
 	//TODO
@@ -146,8 +147,8 @@ function readVariables(streamers){
             url: `https://api.twitch.tv/helix/videos?user_id=${user_id}&first=100`,
             headers: {
                 'User-Agent': 'request',
-                'Client-ID': '***REMOVED***',
-	        'Authorization': `Bearer ${token}`,
+                'Client-ID': `${clientId}`,
+	        'Authorization': `${token}`,
             }};
         nextOptions = options;
         array = request(options, callback);
