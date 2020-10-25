@@ -1,4 +1,5 @@
 //use 'strict';
+// const process =require('shelljs')
 const request = require('request');
 require('dotenv').config();
 let mysql = require('mysql');
@@ -30,7 +31,7 @@ let nextOptions;
 let array = [];
 let after = null;
 let user_id = null;
-let timeToSleep = 35;
+let timeToSleep = 350;
 const promises = []
 global.aff0 = 0;
 function checkUser(user, uid, dname){ //Username, User_id, Display Name
@@ -110,51 +111,48 @@ function updateUserData(data){
 function processGetUserData(error, response, body){
 	if (!error && response.statusCode === 200) {
 		array = JSON.parse(body);
-		console.log(array.data);
 		updateUserData(array.data);
 	}
 	else if (response.statusCode === 401){
 		console.log('User is not authorized, try renewing OAUTH2 Token');
 	}
 	else{
-		console.log('API Erorr, something is wrong');
-		console.log(response.statusCode);
-		console.log(response.statusMessage);
-		console.log(response);
-		console.log(error);
+		console.log('API Error, something is wrong \n' + response.statusCode + '\n' +response.statusMessage + '\n' + response + '\n' + error);
 	}
 }
 function done(data) {
     pool.query(global.sql, [data],function (err, result) {
-                if (!err) {
-                    if (result.affectedRows !== 0){
-			console.log(result.affectedRows);}
-                    else{global.aff0++;}
-		}
-                if (err !== null) {console.log(err.sqlMessage)}})
+        if (!err) {
+            if (result.affectedRows !== 0){
+                console.log("added: "+result.affectedRows);
+            }
+            else{global.aff0++;}
+	    }
+    if (err !== null) {console.log(err.sqlMessage)}})
 }
-function readVariables(streamers){
+function readVariables(streamers) {
     let downloadUser = [];
-    for (let i = 0; i < streamers.length; i++){
-	let {user_name:user, streamer:displayname, user_id:uid} = streamers[i];
-	checkUser(user,uid,displayname);
+    for (let i = 0; i < streamers.length; i++) {
+        let {user_name: user, streamer: displayname, user_id: uid} = streamers[i];
+        checkUser(user, uid, displayname);
 
         downloadUser.push(streamers[i].user_id);
     }
-    for(let i = 0; i < downloadUser.length; i++){
+    for (let i = 0; i < downloadUser.length; i++) {
         user_id = downloadUser[i];
         options = {
             url: `https://api.twitch.tv/helix/videos?user_id=${user_id}&first=100`,
             headers: {
                 'User-Agent': 'request',
                 'Client-ID': `${clientId}`,
-	        'Authorization': `${token}`,
-            }};
+                'Authorization': `${token}`,
+            }
+        };
         nextOptions = options;
         array = request(options, callback);
-        if (i+1 === downloadUser.length){
+        if (i + 1 === downloadUser.length) {
             sleep(timeToSleep)
-		//FIXME
+            //FIXME
         }
     }
     const data = Promise.all(promises)
@@ -170,7 +168,7 @@ async function sleep(seconds){
 async function timeout(seconds){
     return new Promise(resolve => setTimeout(resolve, seconds*1000));
 }
-function callback(error, response, body) {
+async function callback(error, response, body) {
     if (!error && response.statusCode === 200) {
         array = JSON.parse(body);
         let lastAfter = '';
@@ -200,6 +198,8 @@ function callback(error, response, body) {
     }
     return array;
 }
+
+
 function processArray(array) {
     let tempValues = [];
     for (let i = 0; i < array.data.length; i++) {
