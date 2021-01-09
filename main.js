@@ -1,6 +1,13 @@
 //use 'strict';
 const request = require('request');
-require('dotenv').config();
+//require('dotenv').config();
+const fs = require('fs');
+const dotenv = require('dotenv');
+const envConfig = dotenv.parse(fs.readFileSync('.env.local'));
+for (const k in envConfig){
+	process.env[k] = envConfig[k];
+}
+
 let mysql = require('mysql');
 let pool = mysql.createPool({
 	connectionLimit: 15,
@@ -22,7 +29,7 @@ pool.on('enqueue', function () {
     console.log('Waiting for available connection slot');
 });
 pool.query('SELECT user_name, user_id, doDownload, streamer, downloadPriority FROM F_Videa.Streamers ORDER BY downloadPriority DESC', function (error, results) {
-    readVariables(results);
+	readVariables(results);
 });
 
 let options;
@@ -33,6 +40,7 @@ let user_id = null;
 let timeToSleep = 35;
 const promises = []
 global.aff0 = 0;
+//function renewToken(clientId
 function checkUser(user, uid, dname){ //Username, User_id, Display Name
 	const oneOfIsTrue = (currentValue) => currentValue === true ;
 	const oneOfIsFalse = (currentValue) => currentValue === false ;
@@ -110,11 +118,13 @@ function updateUserData(data){
 function processGetUserData(error, response, body){
 	if (!error && response.statusCode === 200) {
 		array = JSON.parse(body);
+		console.log('Array data: ');
 		console.log(array.data);
 		updateUserData(array.data);
 	}
 	else if (response.statusCode === 401){
 		console.log('User is not authorized, try renewing OAUTH2 Token');
+		getNewToken();
 	}
 	else{
 		console.log('API Erorr, something is wrong');
@@ -204,7 +214,7 @@ function processArray(array) {
     let tempValues = [];
     for (let i = 0; i < array.data.length; i++) {
         // if streamer is online, skip
-        if (array.data[i].thumbnail_url !== '') {
+	//if (array.data[i].thumbnail_url == '') {
             tempValues[i] = [];
             tempValues[i][0] = array.data[i].id;
             tempValues[i][1] = array.data[i].user_id;
@@ -220,9 +230,9 @@ function processArray(array) {
             tempValues[i][11] = array.data[i].language;
             tempValues[i][12] = array.data[i].type;
             tempValues[i][13] = turnTextIntoSeconds(array.data[i].duration);
-        } else {
-            console.log(`User ${array.data[i].user_id}, ${array.data[i].user_name} is streaming`);
-        }
+        //} else {
+        //    console.log(`User ${array.data[i].user_id}, ${array.data[i].user_name} is streaming`);
+        //}
     }
     let tempValues2 = tempValues.filter(Boolean);
     if (tempValues2.length !== 0) {
