@@ -1,7 +1,7 @@
 etc/
 node_modules/
 package-lock.json
-test.js
+.test.js
 .env.local
 .env.production
 .env.test
