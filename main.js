@@ -111,34 +111,34 @@ function getUsernameById(id){
         request(options, processGetUserData);
 }
 function updateUserData(data){
-	console.log(data);
+	//console.log(data);
 	let {id:uid, login:user_name, display_name:streamer} = data;
 	//process.exit(1);
 }
 function processGetUserData(error, response, body){
 	if (!error && response.statusCode === 200) {
 		array = JSON.parse(body);
-		console.log('Array data: ');
-		console.log(array.data);
+		//console.log('Array data: ');
+		//console.log(array.data);
 		updateUserData(array.data);
 	}
 	else if (response.statusCode === 401){
 		console.log('User is not authorized, try renewing OAUTH2 Token');
+		//FIXME Setup OOP getNewToken()
 		getNewToken();
 	}
 	else{
 		console.log('API Erorr, something is wrong');
 		console.log(response.statusCode);
 		console.log(response.statusMessage);
-		console.log(response);
+		//console.log(response);
 		console.log(error);
 	}
 }
 function done(data) {
     pool.query(global.sql, [data],function (err, result) {
                 if (!err) {
-                    if (result.affectedRows !== 0){
-			console.log(result.affectedRows);}
+                    if (result.affectedRows !== 0){console.log(result.affectedRows);}
                     else{global.aff0++;}
 		}
                 if (err !== null) {console.log(err.sqlMessage)}})
