@@ -1,17 +1,18 @@
 //use 'strict';
 const request = require('request');
-//require('dotenv').config();
 const fs = require('fs');
 const dotenv = require('dotenv');
-const envConfig = dotenv.parse(fs.readFileSync('.env.local'));
+const path = require('path');
+const envConfig = dotenv.parse(fs.readFileSync(__dirname + '/.env.local'));
 for (const k in envConfig){
 	process.env[k] = envConfig[k];
 }
 
 let mysql = require('mysql');
 let pool = mysql.createPool({
-	connectionLimit: 15,
+	connectionLimit: 50,
 	host: process.env.mysql_host,
+	port: process.env.mysql_port,
 	user: process.env.mysql_user,
 	password: process.env.mysql_pwd,
 	database: process.env.mysql_db
@@ -26,9 +27,11 @@ pool.on('connection', function (connection) {
     connection.query('SET SESSION auto_increment_increment=1');
 })*/
 pool.on('enqueue', function () {
-    console.log('Waiting for available connection slot');
+    //console.log('Waiting for available connection slot');
 });
 pool.query('SELECT user_name, user_id, doDownload, streamer, downloadPriority FROM F_Videa.Streamers ORDER BY downloadPriority DESC', function (error, results) {
+	console.log(error)
+	//console.log(results)
 	readVariables(results);
 });
 
@@ -40,7 +43,6 @@ let user_id = null;
 let timeToSleep = 35;
 const promises = []
 global.aff0 = 0;
-//function renewToken(clientId
 function checkUser(user, uid, dname){ //Username, User_id, Display Name
 	const oneOfIsTrue = (currentValue) => currentValue === true ;
 	const oneOfIsFalse = (currentValue) => currentValue === false ;
@@ -111,15 +113,12 @@ function getUsernameById(id){
         request(options, processGetUserData);
 }
 function updateUserData(data){
-	//console.log(data);
 	let {id:uid, login:user_name, display_name:streamer} = data;
 	//process.exit(1);
 }
 function processGetUserData(error, response, body){
 	if (!error && response.statusCode === 200) {
 		array = JSON.parse(body);
-		//console.log('Array data: ');
-		//console.log(array.data);
 		updateUserData(array.data);
 	}
 	else if (response.statusCode === 401){
@@ -141,7 +140,9 @@ function done(data) {
                     if (result.affectedRows !== 0){console.log(result.affectedRows);}
                     else{global.aff0++;}
 		}
-                if (err !== null) {console.log(err.sqlMessage)}})
+                if (err !== null) {
+					//console.log(err.sqlMessage)
+					}})
 }
 function readVariables(streamers){
     let downloadUser = [];
@@ -173,7 +174,7 @@ function readVariables(streamers){
 }
 async function sleep(seconds){
     await timeout(seconds);
-    console.log("aff0 is: ", global.aff0)
+    //console.log("aff0 is: ", global.aff0)
     console.log("Job should be done, exiting")
     pool.end()
 }
@@ -197,12 +198,18 @@ function callback(error, response, body) {
             console.log(`All streams from ${array.data[0].user_id}`);
         }
         else{
-            // console.log(`Next pagination is ${array.pagination.cursor} ${array.data.length} from userID ${user_id} => `);
+             //console.log(`Next pagination is ${array.pagination.cursor} ${array.data.length} from userID ${user_id} => `);
         }
-        // console.log(`userid is ${array.data[0].user_id}`);
+        //console.log(`userid is ${array.data[0].user_id}`);
     }
+	else if(response.statusCode === 401){
+		console.log("Unauthorized: Get new Oauth2 Token");
+		process.exit();
+	}
+	array = JSON.parse(body);
+	//console.dir(array);
     if (after !== ''){
-        // console.log('after is not empty');
+         //console.log('after is not empty');
         array = request(nextOptions, isArrayEmpty);
     }
     else{
@@ -273,15 +280,17 @@ function turnTextIntoSeconds(time){
 function isArrayEmpty(error, response, body){
     const testArray = JSON.parse(body);
     if (!error && response.statusCode === 200) {
+	    //console.log(body);
         // console.log('ArrayEmptiness check');
         if (testArray.data.length === 0){
-            console.log('Array is empty');
+            //console.log('Array is empty');
             return true;
         }
         else{
-            // console.log('Array is not empty');
+            //console.log('Array is not empty');
             // console.log('pagination Array is being processed');
             processArray(testArray);
+	    //console.log("Array processed");
             return 'Array was processed';
         }
     }
