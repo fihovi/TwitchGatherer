@@ -19,7 +19,7 @@ let pool = mysql.createPool({
 });
 let clientId = process.env.client_id
 let token = process.env.token
-global.sql = 'INSERT IGNORE INTO F_Videa.streams (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration) VALUES ?';
+global.sql = 'INSERT IGNORE INTO F_Videa.streams2 (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration, stream_id) VALUES ? ON DUPLICATE KEY UPDATE view_count=VALUES(view_count), updatedAt=CURRENT_TIMESTAMP();'
 /*pool.on('acquire', function(connection){
     console.log('Connection %d acquired', connection.threadId);
 });
@@ -30,8 +30,7 @@ pool.on('enqueue', function () {
     //console.log('Waiting for available connection slot');
 });
 pool.query('SELECT user_name, user_id, doDownload, streamer, downloadPriority FROM F_Videa.Streamers ORDER BY downloadPriority DESC', function (error, results) {
-	console.log(error)
-	//console.log(results)
+	if (error != null)	console.log(error)
 	readVariables(results);
 });
 
@@ -43,6 +42,8 @@ let user_id = null;
 let timeToSleep = 35;
 const promises = []
 global.aff0 = 0;
+global.lastUser = null;
+global.curUser = null;
 function checkUser(user, uid, dname){ //Username, User_id, Display Name
 	const oneOfIsTrue = (currentValue) => currentValue === true ;
 	const oneOfIsFalse = (currentValue) => currentValue === false ;
@@ -65,7 +66,7 @@ function checkUser(user, uid, dname){ //Username, User_id, Display Name
 	}
 	else if (response.user === true && response.uid === true && response.dname === false){
 		//TODO set username to displayname --> take user to mysql DB as streamer
-		//MySQL Query UPDATE F_Videa.streams SET streamer=xxx WHERE 
+		//MySQL Query UPDATE F_Videa.streams2 SET streamer=xxx WHERE 
 	}
 	else if (response.user === true && response.uid === false){
 		getIdByUsername(user);
@@ -95,8 +96,8 @@ function getIdByUsername(username){
 	console.log(`Getting data for username ${username}`);
 	//TODO
 	//Get data and alter database
-	let response = '';
-        request(options, processGetUserData);
+	let response = request(options, processGetUserData);
+	//console.log("Got data ", username, response);
 }
 function getUsernameById(id){
 	let options = {
@@ -110,16 +111,22 @@ function getUsernameById(id){
 	//TODO
 	//Get data and alter database
 	let response = '';
-        request(options, processGetUserData);
+        response = request(options, processGetUserData);
+	console.log(response)
 }
 function updateUserData(data){
-	let {id:uid, login:user_name, display_name:streamer} = data;
+	let id, login, display_name = '';
+	let {id:uid, login:user_name, display_name:streamer} = data[0];
+	//console.log(id, login, display_name);
+	console.log(uid, user_name, streamer);
 	//process.exit(1);
 }
 function processGetUserData(error, response, body){
 	if (!error && response.statusCode === 200) {
 		array = JSON.parse(body);
+		console.log(array.data);
 		updateUserData(array.data);
+		console.log("Processing ", array.data[0].id)
 	}
 	else if (response.statusCode === 401){
 		console.log('User is not authorized, try renewing OAUTH2 Token');
@@ -135,21 +142,26 @@ function processGetUserData(error, response, body){
 	}
 }
 function done(data) {
-    pool.query(global.sql, [data],function (err, result) {
-                if (!err) {
-                    if (result.affectedRows !== 0){console.log(result.affectedRows);}
-                    else{global.aff0++;}
-		}
-                if (err !== null) {
-					//console.log(err.sqlMessage)
-					}})
+	if (data.length !== 0){
+	pool.query(global.sql, [data],function (err, result) {
+		if (!err) {
+			if (result.affectedRows !== 0){console.log(data[0][2], result.message);}
+		} else{global.aff0++;}
+		if (err !== null) {
+		if (err.errno != 1213) {
+				//console.log("SQL Error: ", err.sqlMessage)
+				console.dir(err)
+				console.dir(err.code)
+			}
+	}})
+	}
+	else {console.log("done function got empty data");}
 }
 function readVariables(streamers){
     let downloadUser = [];
     for (let i = 0; i < streamers.length; i++){
 	let {user_name:user, streamer:displayname, user_id:uid} = streamers[i];
 	checkUser(user,uid,displayname);
-
         downloadUser.push(streamers[i].user_id);
     }
     for(let i = 0; i < downloadUser.length; i++){
@@ -169,12 +181,19 @@ function readVariables(streamers){
         }
     }
     const data = Promise.all(promises)
-        // .then(data => {done(data)})
-        .catch(error => console.log(`Error in executing ${error}`))
+        .then((data) => {done(data)})
+        .catch((error) => console.log(`Error in executing ${error}`))
+}
+
+async function fetchData() {
+	const results = await Promise.all(promises);
+	console.dir("fetchdata thingy: ", results);
+	console.log(results);
+	return results;
 }
 async function sleep(seconds){
     await timeout(seconds);
-    //console.log("aff0 is: ", global.aff0)
+    console.log("aff0 is: ", global.aff0)
     console.log("Job should be done, exiting")
     pool.end()
 }
@@ -237,17 +256,28 @@ function processArray(array) {
             tempValues[i][11] = array.data[i].language;
             tempValues[i][12] = array.data[i].type;
             tempValues[i][13] = turnTextIntoSeconds(array.data[i].duration);
+	    tempValues[i][14] = array.data[i].stream_id;
+//	    console.log(array.data[i].stream_id);
+	    //console.log(tempValues[i][14]);
+	    //if (array.data[i].user_name == "2147483647")
         //} else {
         //    console.log(`User ${array.data[i].user_id}, ${array.data[i].user_name} is streaming`);
         //}
     }
     let tempValues2 = tempValues.filter(Boolean);
     if (tempValues2.length !== 0) {
-        promises.push(done(tempValues2))
+		if (tempValues2[0][2] != null) {
+			curUser = tempValues2[0][2];
+		if (curUser !== lastUser || lastUser == null) {
+			//console.log(curUser);
+			lastUser = curUser;
+			promises.push(done(tempValues2));
+		}
     }
     //TODO Stackup and then quit
-
 }
+}
+
 function deEmoji(string){
     let regex = /(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|\ud83c[\ude01-\ude02]|\ud83c\ude1a|\ud83c\ude2f|\ud83c[\ude32-\ude3a]|\ud83c[\ude50-\ude51]|\u203c|\u2049|[\u25aa-\u25ab]|\u25b6|\u25c0|[\u25fb-\u25fe]|\u00a9|\u00ae|\u2122|\u2139|\ud83c\udc04|[\u2600-\u26FF]|\u2b05|\u2b06|\u2b07|\u2b1b|\u2b1c|\u2b50|\u2b55|\u231a|\u231b|\u2328|\u23cf|[\u23e9-\u23f3]|[\u23f8-\u23fa]|\ud83c\udccf|\u2934|\u2935|[\u2190-\u21ff])/g;
     return string.replace(regex, '');
