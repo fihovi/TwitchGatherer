@@ -1,24 +1,27 @@
 //use 'strict';
 const request = require('request');
-//require('dotenv').config();
+const axios = require('axios');
 const fs = require('fs');
 const dotenv = require('dotenv');
-const envConfig = dotenv.parse(fs.readFileSync('.env.local'));
+const path = require('path');
+const envConfig = dotenv.parse(fs.readFileSync(__dirname + '/.env.local'));
+//const envConfig = dotenv.parse(fs.readFileSync('.env.local'));
 for (const k in envConfig){
 	process.env[k] = envConfig[k];
 }
 
 let mysql = require('mysql');
 let pool = mysql.createPool({
-	connectionLimit: 15,
+	connectionLimit: 50,
 	host: process.env.mysql_host,
+	port: process.env.mysql_port,
 	user: process.env.mysql_user,
 	password: process.env.mysql_pwd,
 	database: process.env.mysql_db
 });
 let clientId = process.env.client_id
 let token = process.env.token
-global.sql = 'INSERT IGNORE INTO F_Videa.streams (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration) VALUES ?';
+global.sql = 'INSERT IGNORE INTO F_Videa.streams3 (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration, stream_id) VALUES ? ON DUPLICATE KEY UPDATE view_count=VALUES(view_count), updatedAt=CURRENT_TIMESTAMP();'
 /*pool.on('acquire', function(connection){
     console.log('Connection %d acquired', connection.threadId);
 });
@@ -26,9 +29,10 @@ pool.on('connection', function (connection) {
     connection.query('SET SESSION auto_increment_increment=1');
 })*/
 pool.on('enqueue', function () {
-    console.log('Waiting for available connection slot');
+    //console.log('Waiting for available connection slot');
 });
 pool.query('SELECT user_name, user_id, doDownload, streamer, downloadPriority FROM F_Videa.Streamers ORDER BY downloadPriority DESC', function (error, results) {
+	if (error != null)	console.log(error)
 	readVariables(results);
 });
 
@@ -40,7 +44,8 @@ let user_id = null;
 let timeToSleep = 35;
 const promises = []
 global.aff0 = 0;
-//function renewToken(clientId
+global.lastUser = null;
+global.curUser = null;
 function checkUser(user, uid, dname){ //Username, User_id, Display Name
 	const oneOfIsTrue = (currentValue) => currentValue === true ;
 	const oneOfIsFalse = (currentValue) => currentValue === false ;
@@ -93,8 +98,13 @@ function getIdByUsername(username){
 	console.log(`Getting data for username ${username}`);
 	//TODO
 	//Get data and alter database
-	let response = '';
-        request(options, processGetUserData);
+	//let response = request(options, processGetUserData);
+	array = axios(options)
+		.then(response => processGetUserData(response))
+		.catch(error => console.error('Error fetching user data: ', error));
+	console.dir(array);
+	//console.dir(response);
+	//console.log("Got data ", username, response);
 }
 function getUsernameById(id){
 	let options = {
@@ -107,12 +117,20 @@ function getUsernameById(id){
 	console.log(`Getting data for id ${id}`);
 	//TODO
 	//Get data and alter database
-	let response = '';
-        request(options, processGetUserData);
+	//let response = '';
+    //response = request(options, processGetUserData);
+	array = axios(options)
+		.then(response => processGetUserData(response))
+		.catch(error => console.error('Error fetching user data: ', error));
+	console.dir(array);
+	//console.dir(response);
+	//console.log("Got data ", username, response);
 }
 function updateUserData(data){
-	console.log(data);
-	let {id:uid, login:user_name, display_name:streamer} = data;
+	let id, login, display_name = '';
+	let {id:uid, login:user_name, display_name:streamer} = data[0];
+	//console.log(id, login, display_name);
+	console.log(uid, user_name, streamer);
 	//process.exit(1);
 }
 function processGetUserData(error, response, body){
@@ -121,34 +139,41 @@ function processGetUserData(error, response, body){
 		console.log('Array data: ');
 		console.log(array.data);
 		updateUserData(array.data);
+		console.log("Processing ", array.data[0].id)
 	}
 	else if (response.statusCode === 401){
 		console.log('User is not authorized, try renewing OAUTH2 Token');
+		//FIXME Setup OOP getNewToken()
 		getNewToken();
 	}
 	else{
-		console.log('API Erorr, something is wrong');
-		console.log(response.statusCode);
-		console.log(response.statusMessage);
-		console.log(response);
-		console.log(error);
+		console.log('API Erorr, something is wrong', response.statusCode, response.statusMessage);
+		//console.log(response);
 	}
+	return;
 }
 function done(data) {
-    pool.query(global.sql, [data],function (err, result) {
-                if (!err) {
-                    if (result.affectedRows !== 0){
-			console.log(result.affectedRows);}
-                    else{global.aff0++;}
-		}
-                if (err !== null) {console.log(err.sqlMessage)}})
+	if (data.length !== 0){
+		console.log("Adding data for", data[0][2], data.length)
+		//pool.query(global.sql, [data],function (err, result) {
+		//	if (!err) {
+		//		if (result.affectedRows !== 0){console.log(data[0][2], result.message);}
+		//	} else{global.aff0++;}
+		//	if (err !== null) {
+		//	if (err.errno != 1213) {
+		//			//console.log("SQL Error: ", err.sqlMessage)
+		//			console.dir(err)
+		//			console.dir(err.code)
+		//		}
+		//}})
+	}
+	else {console.log("done function got empty data");}
 }
 function readVariables(streamers){
     let downloadUser = [];
     for (let i = 0; i < streamers.length; i++){
 	let {user_name:user, streamer:displayname, user_id:uid} = streamers[i];
 	checkUser(user,uid,displayname);
-
         downloadUser.push(streamers[i].user_id);
     }
     for(let i = 0; i < downloadUser.length; i++){
@@ -161,15 +186,27 @@ function readVariables(streamers){
 	        'Authorization': `${token}`,
             }};
         nextOptions = options;
-        array = request(options, callback);
+	//array = request(options, callback);
+	array = axios(options)
+		.then(response => callback(null, response))
+		.catch(error => console.error('Error: ', error));
         if (i+1 === downloadUser.length){
             sleep(timeToSleep)
 		//FIXME
         }
     }
     const data = Promise.all(promises)
-        // .then(data => {done(data)})
-        .catch(error => console.log(`Error in executing ${error}`))
+        .then((data) => {done(data)})
+        .catch((error) => console.log(`Error in executing ${error}`))
+	console.log("Promises 202, data", data)
+	console.log("Promises 202, data", promises)
+}
+
+async function fetchData() {
+	const results = await Promise.all(promises);
+	console.dir("fetchdata thingy: ", results);
+	console.log(results);
+	return results;
 }
 async function sleep(seconds){
     await timeout(seconds);
@@ -180,36 +217,62 @@ async function sleep(seconds){
 async function timeout(seconds){
     return new Promise(resolve => setTimeout(resolve, seconds*1000));
 }
-function callback(error, response, body) {
-    if (!error && response.statusCode === 200) {
-        array = JSON.parse(body);
-        let lastAfter = '';
-        processArray(array);
-        after = array.pagination.cursor;
-        if (after === lastAfter){
-            console.log("Error");
-            throw new Error("Something went badly wrong!");
-        }
-        else {
-            nextOptions.url += `&after=${after}`;
-        }
-        if (array.pagination.cursor === ''){
-            console.log(`All streams from ${array.data[0].user_id}`);
-        }
-        else{
-            // console.log(`Next pagination is ${array.pagination.cursor} ${array.data.length} from userID ${user_id} => `);
-        }
-        // console.log(`userid is ${array.data[0].user_id}`);
-    }
-    if (after !== ''){
-        // console.log('after is not empty');
-        array = request(nextOptions, isArrayEmpty);
-    }
-    else{
-        console.log(`after === ''`);
-    }
-    return array;
+function callback(error, response) {
+	if (response.status != 200) {
+		console.warn("Callback, 222: ", response.statusText, response.status)
+		console.warn(response.status, response.statusText)
+	}
+	if (error != null) {console.log("223 error" ,error)}
+	if (!error || response.status === 200) {
+		array = response.data;
+		//console.log(array.data.length)
+		if (array.data.length == 0) {
+			return;
+		}
+		else {
+			console.log("223, length", array.data.length, "for user", array.data[0].user_name)
+			let lastAfter = '';
+			processArray(array);
+			after = array.pagination.cursor;
+			if (after === lastAfter){
+				console.log("Error");
+				throw new Error("Something went badly wrong!");
+			}
+			else {
+				nextOptions.url += `&after=${after}`;
+			}
+			if (array.pagination.cursor === ''){
+				console.log(`All streams from ${array.data[0].user_id}`);
+			}
+			else{
+				console.log(`Next pagination is ${array.pagination.cursor} ${array.data.length} from userID ${user_id} => `);
+			}
+			//console.log(`userid is ${array.data[0].user_id}`);
+		}
+	}
+	else if(response.statusCode === 401){
+		console.log("Unauthorized: Get new Oauth2 Token");
+		process.exit();
+	}
+	else {
+		console.log(error)
+		console.log("246:", response.statusCode, response.status, "statustext", response.statusText)
+	}
+	//array = JSON.parse(body);
+	//console.dir(array);
+	if (after !== ''){
+		//console.log('after is not empty');
+		//array = request(nextOptions, isArrayEmpty);
+		array = axios(nextOptions)
+			.then(response => isArrayEmpty(null, response))
+			.catch(error => console.error('(after) Error: ', error, nextOptions));
+	}
+	else{
+		console.log(`after === ''`);
+	}
+	return array;
 }
+
 function processArray(array) {
     let tempValues = [];
     for (let i = 0; i < array.data.length; i++) {
@@ -230,21 +293,32 @@ function processArray(array) {
             tempValues[i][11] = array.data[i].language;
             tempValues[i][12] = array.data[i].type;
             tempValues[i][13] = turnTextIntoSeconds(array.data[i].duration);
+	    tempValues[i][14] = array.data[i].stream_id;
+//	    console.log(array.data[i].stream_id);
+	    //console.log(tempValues[i][14]);
+	    //if (array.data[i].user_name == "2147483647")
         //} else {
         //    console.log(`User ${array.data[i].user_id}, ${array.data[i].user_name} is streaming`);
         //}
     }
     let tempValues2 = tempValues.filter(Boolean);
     if (tempValues2.length !== 0) {
-        promises.push(done(tempValues2))
+		if (tempValues2[0][2] != null) {
+			curUser = tempValues2[0][2];
+		if (curUser !== lastUser || lastUser == null) {
+			//console.log(curUser);
+			lastUser = curUser;
+			promises.push(done(tempValues2));
+		}
+		}
     }
     //TODO Stackup and then quit
-
 }
 function deEmoji(string){
     let regex = /(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|\ud83c[\ude01-\ude02]|\ud83c\ude1a|\ud83c\ude2f|\ud83c[\ude32-\ude3a]|\ud83c[\ude50-\ude51]|\u203c|\u2049|[\u25aa-\u25ab]|\u25b6|\u25c0|[\u25fb-\u25fe]|\u00a9|\u00ae|\u2122|\u2139|\ud83c\udc04|[\u2600-\u26FF]|\u2b05|\u2b06|\u2b07|\u2b1b|\u2b1c|\u2b50|\u2b55|\u231a|\u231b|\u2328|\u23cf|[\u23e9-\u23f3]|[\u23f8-\u23fa]|\ud83c\udccf|\u2934|\u2935|[\u2190-\u21ff])/g;
     return string.replace(regex, '');
 }
+
 function turnTimeIntoTimeStamp(time){
     if (time == null){
         // console.log("error lol");
@@ -257,6 +331,7 @@ function turnTimeIntoTimeStamp(time){
         console.log(`time before ${time} for ${id} for user ${user_id}`);
     }
 }
+
 function turnTextIntoSeconds(time){
     let seconds = time.split(/[dhms]/g);
     let realSeconds = 0;
@@ -270,20 +345,39 @@ function turnTextIntoSeconds(time){
     realSeconds += parseInt(seconds[0]);
     return realSeconds;
 }
+
 function isArrayEmpty(error, response, body){
-    const testArray = JSON.parse(body);
-    if (!error && response.statusCode === 200) {
-        // console.log('ArrayEmptiness check');
-        if (testArray.data.length === 0){
-            console.log('Array is empty');
-            return true;
-        }
-        else{
-            // console.log('Array is not empty');
-            // console.log('pagination Array is being processed');
-            processArray(testArray);
-            return 'Array was processed';
-        }
-    }
-    return false;
+	if (response.data.length < 0) {
+		console.log("351, pagination check in isArrayEmpty", response.data.pagination.cursor, "for user", response.data[0].user_name);
+	}
+	//console.log("response: => ", response.data.data)
+	if (error != undefined) {
+		console.log("body", body)
+	}
+	//console.log(response.data.data)
+	const transformedData = response.data;
+	//const testArray = JSON.parse(transformedData);
+	if (transformedData.data.length === 0){
+		return;
+	}
+	else{
+		processArray(transformedData);
+		//console.log("processing transformedDAta");
+	}
+	//process.exit()
+	//testArray = JSON.parse(body);
+	if (!error && response.statusCode === 200) {
+		// console.log('ArrayEmptiness check');
+		if (transformedData.data.length === 0){
+			//console.log('Array is empty');
+			return true;
+		}
+		else{
+			// console.log('Array is not empty');
+			// console.log('pagination Array is being processed');
+			processArray(transformedData);
+			return 'Array was processed';
+		}
+	}
+	return false;
 }
