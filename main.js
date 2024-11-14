@@ -103,7 +103,14 @@ function getIdByUsername(username) {
 	//let response = request(options, processGetUserData);
 	axios(options)
 		.then(response => processGetUserData(response))
-		.catch(error => console.error('Error fetching user data: ', error));
+		.catch(error => {
+			if (error.data.data.status== 401) {
+				console.log('Unauthorized, run new token')
+				process.exit(4)
+			} else {
+				console.error('Error fetching user data: ', error.data.status)
+			}
+	});
 	console.dir(array);
 	//console.log("Got data ", username, response);
 }
@@ -139,7 +146,7 @@ function processGetUserData(error, response) {
 	}
 	else if (response.statusCode === 401){
 		console.log('User is not authorized, try renewing OAUTH2 Token');
-		//FIXME Setup OOP getNewToken()
+		//FIXME: Setup OOP getNewToken()
 	getNewToken();
 	}
 	else{
@@ -183,10 +190,16 @@ function readVariables(streamers){
 		nextOptions = options;
 		axios(options)
 			.then(response => callback(null, response))
-			.catch(error => console.error('Error: ', error));
+			.catch(error => {
+			if (error.response.status == 401) {
+				console.log('Unauthorized, run new token')
+				process.exit(401)
+			} else {
+				console.error('Error: ', error.response.status)
+		}});
 		if (i+1 === downloadUser.length){
 			sleep(timeToSleep)
-			//FIXME
+			//FIXME:
 		}
 	}
 	const data = Promise.all(promises)
