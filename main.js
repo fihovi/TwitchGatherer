@@ -9,6 +9,7 @@ for (const k in envConfig){
 	process.env[k] = envConfig[k];
 }
 
+// FIXME: check token
 let mysql = require('mysql');
 let pool = mysql.createPool({
 	connectionLimit: 50,
@@ -20,6 +21,7 @@ let pool = mysql.createPool({
 });
 let clientId = process.env.client_id
 let token = process.env.token
+// FIXME:
 global.sql = 'INSERT IGNORE INTO F_Videa.streams3 (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration, stream_id) VALUES ? ON DUPLICATE KEY UPDATE view_count=VALUES(view_count), updatedAt=CURRENT_TIMESTAMP();'
 /*pool.on('acquire', function(connection){
 	console.log('Connection %d acquired', connection.threadId);
@@ -45,6 +47,7 @@ const promises = []
 global.aff0 = 0;
 global.lastUser = null;
 global.curUser = null;
+
 function checkUser(user, uid, dname){ //Username, User_id, Display Name
 	const oneOfIsTrue = (currentValue) => currentValue === true ;
 	const oneOfIsFalse = (currentValue) => currentValue === false ;
@@ -85,7 +88,7 @@ function checkUser(user, uid, dname){ //Username, User_id, Display Name
 }
 function getUserData(data, type){}
 function getIdByUsername(username) {
-	//FIXME 
+	// FIXME: 
 	//Normalize options, to only pass username and get response (function)
 	let options = {
 		url: `https://api.twitch.tv/helix/users?login=${username}`,
