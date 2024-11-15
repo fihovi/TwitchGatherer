@@ -539,7 +539,7 @@ function checkUser(user, uid, dname){ // Username, User_id, Display Name
 }
 function getIdByUsername(username) {
 	// FIXME: 
-	//Normalize options, to only pass username and get response (function)
+	// Normalize options, to only pass username and get response (function)
 	let options = {
 		url: `https://api.twitch.tv/helix/users?login=${username}`,
 		headers: {
@@ -548,9 +548,9 @@ function getIdByUsername(username) {
 			'Authorization': `${token}`,
 	}}
 	console.log(`Getting data for username ${username}`);
-	//TODO
-	//Get data and alter database
-	//let response = request(options, processGetUserData);
+	// TODO:
+	// Get data and alter database
+	// let response = request(options, processGetUserData);
 	axios(options)
 		.then(response => processGetUserData(response))
 		.catch(error => {
@@ -573,9 +573,9 @@ function getUsernameById(id) {
 			'Authorization': `${token}`,
 	}}
 	console.log(`Getting data for id ${id}`);
-	//TODO
-	//Get data and alter database
-	//let response = '';
+	// TODO:
+	// Get data and alter database
+	// let response = '';
 	axios(options)
 		.then(response => processGetUserData(response))
 		.catch(error => console.error('Error fetching user data: ', error));
@@ -592,7 +592,7 @@ function processGetUserData(error, response) {
 	if (!error && response.statusCode === 200) {
 		console.log('Array data: ', response.data);
 		updateUserData(response.data);
-		console.log("Processing ", response.data[0]?.id, response.data[0]?.user_name)
+		//console.log("Processing ", response.data[0]?.id, response.data[0]?.user_name)
 	}
 	else if (response.statusCode === 401){
 		console.log('User is not authorized, try renewing OAUTH2 Token');
@@ -607,7 +607,7 @@ function processGetUserData(error, response) {
 }
 function done(data) {
 	if (data.length !== 0){
-		console.log("Adding data for", data[0][2], data.length)
+		//console.log("Adding data for", data[0][2], data.length)
 		pool.query(global.sql, [data],function (err, result) {
 			if (!err) {
 				if (result.affectedRows !== 0){console.log(data[0][2], result.message);}
@@ -649,7 +649,7 @@ function readVariables(streamers){
 		}});
 		if (i+1 === downloadUser.length){
 			sleep(timeToSleep)
-			//FIXME:
+			// FIXME:
 		}
 	}
 	const data = Promise.all(promises)
@@ -795,7 +795,7 @@ function processArray(array) {
 			}
 		}
 	}
-	//TODO Stackup and then quit
+	// TODO: Stackup and then quit
 }
 
 function deEmoji(string) {
