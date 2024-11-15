@@ -3,7 +3,6 @@ const axios = require('axios');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const envConfig = dotenv.parse(fs.readFileSync(__dirname + '/.env.local'));
-//const envConfig = dotenv.parse(fs.readFileSync('.env.local'));
 for (const k in envConfig){
 	process.env[k] = envConfig[k];
 }
@@ -114,52 +113,6 @@ const test = new APIProto();
 		console.error('Initialization error:', error);
 	}
 })();
-
-// function Database() {
-// 	this.verifyStreamers = function(userIds) {
-// 		return new Promise((resolve, reject) => {
-// 			pool.getConnection((err, connection) => {
-// 				if (err) { reject(err); return; }
-// 				connection.query(
-// 					'SELECT user_id FROM F_Videa.Streamers WHERE user_id IN (?)',
-// 					[userIds],
-// 					(error, results) => {
-// 						connection.release();
-// 						if (error) { reject(error); return; }
-// 						// Convert results to a Set of valid user_ids
-// 						const validUserIds = new Set(results.map(row => row.user_id));
-// 						resolve(validUserIds);
-// 					}
-// 				);
-// 			});
-// 		});
-// 	}
-// 	this.insertData = async function (data) {
-// 		return new Promise((resolve, reject) => {
-// 			pool.getConnection((err, connection) => {
-// 				if (err) {reject(err);return;}
-// 				connection.query('INSERT INTO F_Videa.streams3 (id, user_id, user_name, title, description, created_at, published_at, url, thumbnail_url, viewable, view_count, language, type, duration, stream_id) VALUES ? ON DUPLICATE KEY UPDATE view_count=VALUES(view_count), updatedAt=CURRENT_TIMESTAMP();', [data], (error, results) => {
-// 					connection.release();
-// 					if (error) { reject(error); return; }
-// 					console.log(results.affectedRows);
-// 					resolve(results);
-// 				});
-// 			});
-// 		});
-// 	}
-// 	this.getUsers = async function() {
-// 		return new Promise((resolve, reject) => {
-// 			pool.getConnection((err, connection) => {
-// 				if (err) {reject(err);return;}
-// 				connection.query('SELECT broadcaster_id, broadcaster_login, broadcaster_name FROM F_Videa.broadcasters', (error, results) => {
-// 					connection.release();
-// 					if (error) {reject(error);return;}
-// 					resolve(results);
-// 				});
-// 			});
-// 		});
-// 	}
-// }
 
 class Database {
 	// Add new method to verify users exist
