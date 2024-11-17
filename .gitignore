@@ -1,9 +1,5 @@
-etc/
 node_modules/
-package-lock.json
-.test.js
-.env.local
-.env.production
-.env.test
-log/
 .idea/
+
+package-lock.json
+.env.*
