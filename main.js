@@ -242,9 +242,7 @@ function deEmoji(string) {
 
 function turnTimeIntoTimeStamp(time) {
 
-	if (time == null) {
-		// console.log("error lol");
-	}
+	if (time == null) {}
 	else if (time !== '') {
 		time = time.substr(0, time.length - 1).split('T');
 		return `${time[0]} ${time[1]}`;
@@ -252,14 +250,6 @@ function turnTimeIntoTimeStamp(time) {
 	else {
 		console.log(`time before ${time} for ${id} for user ${user_id}`);
 	}
-	// console.log(time);
-	// if (time !== '') {
-	// 	time = time.substr(0, time.length - 1).split('T');
-	// 	return `${time[0]} ${time[1]}`;
-	// }
-	// else {
-	// 	console.log(`time before ${time} for ${id} for user ${user_id}`);
-	// }
 }
 
 function turnTextIntoSeconds(time) {
