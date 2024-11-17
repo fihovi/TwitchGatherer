@@ -14,6 +14,51 @@ global.sql = 'INSERT IGNORE INTO F_Videa.streams3 (id, user_id, user_name, title
 
 let urls = [];
 
+// Progress tracking system
+const progressTracker = {
+	currentBatch: 0,
+	totalBatches: 0,
+	currentUrl: 0,
+	totalUrls: 0,
+	lastUpdateTime: Date.now(),
+	isRunning: false,
+	status: 'idle',
+	
+	startMonitoring() {
+		this.isRunning = true;
+		this.lastUpdateTime = Date.now();
+		
+		// Start watchdog
+		const watchdogInterval = setInterval(() => {
+			const timeSinceLastUpdate = Date.now() - this.lastUpdateTime;
+			
+			if (this.isRunning && timeSinceLastUpdate > 60000) { // 1 minute timeout
+				console.warn('\n=== WATCHDOG WARNING ===');
+				console.warn('Process appears to be hanging:');
+				console.warn(`Current Status: ${this.status}`);
+				console.warn(`Batch Progress: ${this.currentBatch}/${this.totalBatches}`);
+				console.warn(`URL Progress: ${this.currentUrl}/${this.totalUrls}`);
+				console.warn(`Time since last update: ${Math.round(timeSinceLastUpdate/1000)}s`);
+				console.warn('========================\n');
+			}
+		}, 30000); // Check every 30 seconds
+
+		return watchdogInterval;
+	},
+
+	update(status, batch = null, url = null) {
+		this.status = status;
+		if (batch !== null) this.currentBatch = batch;
+		if (url !== null) this.currentUrl = url;
+		this.lastUpdateTime = Date.now();
+	},
+
+	stop(watchdogInterval) {
+		this.isRunning = false;
+		clearInterval(watchdogInterval);
+	}
+};
+
 (async () => {
 	try {
 		axios.defaults.headers.common['Authorization'] = API.token;
@@ -34,6 +79,8 @@ let urls = [];
 })();
 
 async function fetchDataAndSave() {
+	const watchdogInterval = progressTracker.startMonitoring();
+	
 	try {
 		console.log('Setting up axios headers...');
 		axios.defaults.headers.common['Authorization'] = API.token;
@@ -46,19 +93,22 @@ async function fetchDataAndSave() {
 		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
 		console.log(`Starting to process ${urls.length} batched URLs`);
+		
+		// Initialize progress tracker
+		progressTracker.totalBatches = Math.ceil(urls.length/batchSize);
+		progressTracker.totalUrls = urls.length;
 
-		// Process URLs in parallel batches
 		for (let i = 0; i < urls.length; i += batchSize) {
-			// console.log(`\nStarting batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(urls.length/batchSize)}`);
+			const currentBatchNum = Math.floor(i/batchSize) + 1;
+			progressTracker.update('Starting new batch', currentBatchNum);
 			
 			const batch = urls.slice(i, i + batchSize);
-			console.log(`Processing ${batch.length} URLs in this batch`);
-
+			
 			const promises = batch.map(async (baseUrl, index) => {
-				// console.log(`[Batch ${Math.floor(i/batchSize) + 1}] Starting URL ${index + 1}`);
+				progressTracker.update('Processing URL', currentBatchNum, i + index + 1);
+				
 				let hasNextPage = true;
 				let cursor = null;
-				let pagesForThisUrl = 0;
 				let batchData = [];
 
 				const urlWithLimit = baseUrl.includes('?')
@@ -66,15 +116,15 @@ async function fetchDataAndSave() {
 					: `${baseUrl}?first=${responseMax}`;
 
 				while (hasNextPage) {
-					const url = cursor
-						? `${urlWithLimit}&after=${cursor}`
-						: urlWithLimit;
-
 					try {
-						// console.log(`[Batch ${Math.floor(i/batchSize) + 1}][URL ${index + 1}] Fetching page ${pagesForThisUrl + 1}`);
-						const response = await axios.get(url);
+						progressTracker.update('Making API request', currentBatchNum, i + index + 1);
+						
+						const url = cursor 
+							? `${urlWithLimit}&after=${cursor}`
+							: urlWithLimit;
+							
+						const response = await makeApiRequest(url);
 						totalApiCalls++;
-						pagesForThisUrl++;
 
 						const streams = response.data.data;
 						// console.log(`[Batch ${Math.floor(i/batchSize) + 1}][URL ${index + 1}] Got ${streams.length} streams`);
@@ -108,46 +158,30 @@ async function fetchDataAndSave() {
 							await new Promise(resolve => setTimeout(resolve, 50));
 						}
 					} catch (error) {
-						console.error(`Error processing URL ${url}:`, error.message);
-						hasNextPage = false; // Stop pagination on error
+						console.error(`Error processing URL: ${error.message}`);
+						hasNextPage = false;
 					}
 				}
-
-				// console.log(`[Batch ${Math.floor(i/batchSize) + 1}][URL ${index + 1}] Completed with ${batchData.length} total streams`);
 				return batchData;
 			});
 
-			console.log(`Waiting for batch ${Math.floor(i/batchSize) + 1} to complete...`);
+			progressTracker.update('Waiting for batch completion', currentBatchNum);
 			const batchResults = await Promise.all(promises);
-			console.log(`Batch ${Math.floor(i/batchSize) + 1} completed`);
-
-			const batchStreamData = batchResults.flat();
-			allStreamData = allStreamData.concat(batchStreamData);
-
-			// Insert batch data
-			if (batchStreamData.length > 0) {
-				console.log(`Inserting ${batchStreamData.length} streams to database...`);
+			
+			// Database insertion
+			if (batchResults.flat().length > 0) {
+				progressTracker.update('Inserting into database', currentBatchNum);
 				let db = new Database();
-				try {
-					await db.insertData(batchStreamData);
-					console.log('Database insertion completed');
-				} catch (error) {
-					console.error('Database insertion error:', error);
-					writeErrorToLog(error, 'batch-insert', timestamp);
-				}
+				await db.insertData(batchResults.flat());
 			}
-
-			console.log(`Batch ${Math.floor(i/batchSize) + 1} fully processed\n`);
 		}
 
 		console.log('\nAll batches completed');
-		console.log(`Final Statistics:
-			Total API Calls: ${totalApiCalls}
-			Total Videos Fetched: ${allStreamData.length}
-		`);
-
+		progressTracker.stop(watchdogInterval);
+		
 	} catch (error) {
 		console.error('Fatal error in fetchDataAndSave:', error);
+		progressTracker.stop(watchdogInterval);
 	}
 }
 
@@ -206,14 +240,26 @@ function deEmoji(string) {
 	return string.replace(regex, '');
 }
 
-function turnTimeIntoTimeStamp(time){
-	if (time !== '') {
+function turnTimeIntoTimeStamp(time) {
+
+	if (time == null) {
+		// console.log("error lol");
+	}
+	else if (time !== '') {
 		time = time.substr(0, time.length - 1).split('T');
 		return `${time[0]} ${time[1]}`;
 	}
 	else {
 		console.log(`time before ${time} for ${id} for user ${user_id}`);
 	}
+	// console.log(time);
+	// if (time !== '') {
+	// 	time = time.substr(0, time.length - 1).split('T');
+	// 	return `${time[0]} ${time[1]}`;
+	// }
+	// else {
+	// 	console.log(`time before ${time} for ${id} for user ${user_id}`);
+	// }
 }
 
 function turnTextIntoSeconds(time) {
@@ -240,5 +286,25 @@ function turnTextIntoSeconds(time) {
 		}
 	}
 	return totalSeconds;
+}
+
+async function makeApiRequest(url, retries = 3) {
+	for (let i = 0; i < retries; i++) {
+		try {
+			return await axios.get(url);
+		} catch (error) {
+			if (i === retries - 1) throw error; // Last retry
+			if (error.response?.status === 429) { // Rate limit
+				await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+				continue;
+			}
+			if (error.code === 'ECONNABORTED') {
+				console.warn(`Timeout on attempt ${i + 1}, retrying...`);
+				await new Promise(resolve => setTimeout(resolve, 1000));
+				continue;
+			}
+			throw error;
+		}
+	}
 }
 

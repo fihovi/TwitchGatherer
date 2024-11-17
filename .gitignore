@@ -1,14 +1,8 @@
-etc/
 node_modules/
 package-lock.json
-.test.js
-.env.local
-.env.production
-.env.test
+.env.*
 *.json
 *.bck
 *.xml
 *.yaml
 .idea/
-main_p.js
-second.js
