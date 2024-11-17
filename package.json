@@ -14,7 +14,8 @@
     "mocha": "^10.2.0"
   },
   "scripts": {
-    "test": "mocha --reporter list"
+    "test": "mocha --reporter list",
+    "start": "node main.js"
   },
   "repository": {
     "type": "git",
