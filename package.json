@@ -1,17 +1,14 @@
 {
-  "name": "twitch-test",
-  "version": "0.0.1",
-  "description": "Twitch video Downloader",
-  "main": "second.js",
+  "name": "twitch-video-gatherer",
+  "version": "0.0.3",
+  "description": "Twitch video Gatherer",
+  "main": "main.js",
   "dependencies": {
     "axios": "^1.7.2",
     "dotenv": "^8.6.0",
     "mysql": "^2.18.1",
     "mysql-promise": "^5.0.0",
-    "mysql2": "^3.10.1",
-    "punycode": "^2.3.1",
-    "request": "^2.88.2",
-    "shelljs": "~0.8.4"
+    "mysql2": "^3.10.1"
   },
   "devDependencies": {
     "mocha": "^10.2.0"
