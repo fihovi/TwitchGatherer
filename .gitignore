@@ -1,8 +1,5 @@
 node_modules/
+.idea/
+
 package-lock.json
 .env.*
-*.json
-*.bck
-*.xml
-*.yaml
-.idea/
