@@ -15,4 +15,4 @@ client_secret=<your_client_secret>`
 - [ ] Add error handling
 - [ ] Add more comments
 - [ ] Add more documentation
-- [ ] Rewrite mysql to use mysql2
+- [ ] Rewrite mysql to use mysql2, knex or other library
