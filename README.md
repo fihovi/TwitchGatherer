@@ -1,5 +1,5 @@
 # Twitch Video Gatherer
-The Twitch Video Gatherer is a tool that gathers videos from a Twitch channel and stores them in a database.
+The Twitch Video Gatherer is a tool that gathers video data from a predetermined Twitch channels and stores them in a database.
 
 ## Setup
 1. Install dependencies: `npm install`
