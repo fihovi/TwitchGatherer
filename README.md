@@ -8,6 +8,8 @@ client_secret=<your_client_secret>`
 3. Run the script: `npm start`
 
 # TODO
+- [ ] Add Dockerfile and docker-compose.yaml
+- [ ] Add database structure and create automatically on initialization of the project
 - [ ] Add tests
 - [ ] Add logging
 - [ ] Add error handling
